@@ -1,1 +1,5 @@
 http://localhost:3000/api-docs
+
+npx sequelize-cli db:migrate
+
+npx sequelize-cli db:create
