@@ -1,4 +1,4 @@
-Here is a clean and professional `README.md` file formatted for GitHub, based on the Pago Wallet integration documentation:
+## Pago Wallet Integration for Onramping and Offramping
 
 ---
 
