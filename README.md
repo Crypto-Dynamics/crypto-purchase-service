@@ -1,116 +1,221 @@
-Here’s a professional and concise `README.md` content you can use for your GitHub project repository based on the features you've implemented:
+Here is a clean and professional `README.md` file formatted for GitHub, based on the Pago Wallet integration documentation:
 
 ---
 
-# 🏦 FinTech API – Crypto & Bank Card Wallet Service
+````markdown
+# Pago Wallet Integration  
+**Enable Crypto Onramp & Offramp via Bank Cards in Kenya**
 
-A backend API for managing user authentication, bank cards, crypto wallets, and processing crypto transactions using secure and modern practices. Built with scalability and production-readiness in mind.
+This project demonstrates how to integrate **Pago Wallet** into a Node.js crypto service to enable users in Kenya to:
 
----
-
-## 🚀 Key Features
-
-### 🔐 User Authentication
-
-* JWT-based user registration and login
-* Secure password hashing (e.g., bcrypt)
-
-### 💳 Bank Card Management
-
-* Add, view, and delete cards
-* Set a default payment card
-* Secure storage *(note: use PCI-compliant storage/tokenization in production)*
-
-### 🪙 Crypto Wallet Management
-
-* Add, view, and delete crypto wallets
-* Support for multiple cryptocurrencies
-* Set default wallet per currency
-
-### 🔁 Transaction Processing
-
-* Purchase cryptocurrency using linked bank cards
-* Mock integration with **Pago Wallet**
-* View transaction history
-
-### 📚 API Documentation
-
-* Full Swagger/OpenAPI documentation
-* Developer-friendly API reference
+- **Buy Crypto (Onramp):** Purchase cryptocurrencies (BTC, ETH, USDT, etc.) using bank cards.
+- **Sell Crypto (Offramp):** Convert crypto to KES and withdraw funds to a bank account.
 
 ---
 
-## ✅ Tech Stack
+## 🚀 Tech Stack
 
-* **Backend**: Node.js / Python / Go *(Specify the actual language used)*
-* **Authentication**: JWT
-* **Database**: PostgreSQL / MongoDB *(Specify your choice)*
-* **Docs**: Swagger (OpenAPI 3)
-
----
-
-## 📌 Next Steps for Production
-
-To ensure this API is production-ready:
-
-* [ ] Add comprehensive error handling & logging
-* [ ] Validate & sanitize all inputs
-* [ ] Implement rate limiting & throttling
-* [ ] Add email verification during registration
-* [ ] Ensure **PCI compliance** for card storage
-* [ ] Add **Two-Factor Authentication (2FA)**
-* [ ] Replace mock **Pago Wallet** integration with live API
-* [ ] Implement **webhooks** for async transaction updates
-* [ ] Set up automated **database backups**
-* [ ] Integrate **monitoring and alerting** systems
+- **Node.js + Express** – Backend service
+- **Sequelize** – Database models
+- **Swagger** – API documentation
+- **Pago Wallet API** – Payment processing
 
 ---
 
-## 📎 Getting Started
+## 📘 API Environments
 
-Clone the repository:
+| Environment | Base URL |
+|-------------|----------|
+| Sandbox     | `https://api-sandbox.pagopay.com/v1` |
+| Production  | `https://api.pagopay.com/v1`         |
 
-```bash
-git clone https://github.com/your-username/fintech-api.git
-cd fintech-api
+### Authentication
+
+Use your API key from Pago Wallet Dashboard:
+
+```http
+Authorization: Bearer <API_KEY>
+````
+
+---
+
+## 🔁 Onramp: Buy Crypto with Bank Card
+
+### Flow
+
+1. User provides crypto type and card info.
+2. Backend sends request to Pago.
+3. On success, user’s crypto wallet is credited.
+
+### Example (Node.js)
+
+```js
+const axios = require('axios');
+
+async function processPagoPayment(cardDetails, amount, currency, cryptoType, user) {
+  const response = await axios.post(
+    `${process.env.PAGO_WALLET_BASE_URL}/transactions/card-to-crypto`,
+    {
+      cardNumber: cardDetails.cardNumber,
+      cardHolder: cardDetails.cardHolder,
+      expiryDate: cardDetails.expiryDate,
+      cvv: cardDetails.cvv,
+      amount,
+      currency,
+      cryptoCurrency: cryptoType,
+      customerEmail: user.email,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.PAGO_WALLET_API_KEY}`,
+      },
+    }
+  );
+
+  return {
+    success: true,
+    transactionId: response.data.transactionId,
+    cryptoAmount: response.data.cryptoAmount,
+  };
+}
 ```
 
-Install dependencies:
+### Response
 
-```bash
-npm install   # or pip install -r requirements.txt
-```
-
-Run the development server:
-
-```bash
-npm run dev   # or python manage.py runserver
-```
-
-View API docs at:
-
-```
-http://localhost:PORT/docs
+```json
+{
+  "success": true,
+  "transactionId": "PAGO-123456789",
+  "cryptoAmount": 0.005,
+  "status": "completed"
+}
 ```
 
 ---
 
-## 🛡️ Disclaimer
+## 🔄 Offramp: Sell Crypto to Bank Account
 
-This project is a **demo/prototype** and is **not production-ready** without proper security enhancements and compliance measures. Use at your own risk.
+### Flow
+
+1. User selects crypto and provides bank details.
+2. Backend sends withdrawal request.
+3. Crypto is converted and deposited to the bank.
+
+### Example (Node.js)
+
+```js
+async function sellCryptoToBank(walletAddress, amount, cryptoType, bankAccount) {
+  const response = await axios.post(
+    `${process.env.PAGO_WALLET_BASE_URL}/transactions/crypto-to-bank`,
+    {
+      walletAddress,
+      amount,
+      cryptoCurrency: cryptoType,
+      bankAccountNumber: bankAccount.accountNumber,
+      bankCode: bankAccount.bankCode,
+      recipientName: bankAccount.accountName,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.PAGO_WALLET_API_KEY}`,
+      },
+    }
+  );
+
+  return {
+    success: true,
+    transactionId: response.data.transactionId,
+    fiatAmount: response.data.fiatAmount,
+  };
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "transactionId": "PAGO-987654321",
+  "fiatAmount": 5000,
+  "status": "processing"
+}
+```
 
 ---
 
-## 🤝 Contributing
+## 📡 Webhooks: Real-Time Transaction Updates
 
-Pull requests and contributions are welcome! Please open an issue first to discuss your ideas.
+### Setup Endpoint
+
+```js
+app.post('/pago-webhook', async (req, res) => {
+  const { event, data } = req.body;
+
+  if (event === "transaction.completed") {
+    await Transaction.update(
+      { status: "completed" },
+      { where: { transactionReference: data.transactionId } }
+    );
+  }
+
+  res.status(200).send("OK");
+});
+```
+
+### Webhook Events
+
+| Event                   | Description                    |
+| ----------------------- | ------------------------------ |
+| `transaction.completed` | Payment processed successfully |
+| `transaction.failed`    | Payment failed                 |
+| `withdrawal.processed`  | Crypto-to-bank completed       |
 
 ---
 
-## 📄 License
+## 🇰🇪 Kenya Compliance & KYC
 
-This project is licensed under the [MIT License](LICENSE).
+* Ensure Pago Wallet is registered with **CBK (Central Bank of Kenya)**.
+* Require user ID (National ID/Passport) for transactions above **KES 100,000**.
+
+### Fees (Indicative)
+
+* **Onramp:** 2.5% – 4% (Card processing)
+* **Offramp:** 1% – 2.5% (Bank transfer)
 
 ---
 
-Let me know if you'd like the actual code structure or want this tailored to a specific framework like Django, Express.js, or FastAPI.
+## 🧪 Sandbox Testing
+
+| Scenario | Card Number           | CVV |
+| -------- | --------------------- | --- |
+| Success  | `4242 4242 4242 4242` | 123 |
+| Failure  | `4000 0000 0000 0002` | 123 |
+
+---
+
+## ✅ Go-Live Checklist
+
+* [x] Switch to **Production API Key**
+* [x] Configure **Webhook URL**
+* [x] Implement **KYC Checks**
+* [x] Enforce **User Transaction Limits**
+
+---
+
+## 📚 References
+
+* Pago Wallet Docs: [https://docs.pagopay.com](https://docs.pagopay.com)
+* CBK Regulations: [https://www.centralbank.go.ke](https://www.centralbank.go.ke)
+
+---
+
+## License
+
+MIT License. Use at your own discretion and ensure compliance with local regulations.
+
+```
+
+---
+
+You can copy the above into a file called `README.md` and push it to your GitHub repository. Let me know if you'd like to include Docker instructions, Swagger setup, or a quickstart API test guide.
+```
